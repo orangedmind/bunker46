@@ -49,6 +49,18 @@ jobs:
           echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
           echo "sha=$(git -C src rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
 
+      # Workaround für einen Upstream-Bug: Ein Relay, der beim Verbindungsaufbau in einen
+      # Timeout läuft, beendet sonst den ganzen Server-Prozess (Neustart-Schleife).
+      # Der Relay-Watchdog verbindet abgebrochene Relays ohnehin alle 30 s neu.
+      - name: "Patch: Relay-Timeouts nicht als fatal behandeln"
+        run: |
+          f=src/apps/server/src/common/process-guards.ts
+          sed -i "s/err.name === 'SendingOnClosedConnection'/(err.name === 'SendingOnClosedConnection' || err.message === 'WebSocket was closed before the connection was established')/" "$f"
+          if ! grep -q "WebSocket was closed before the connection was established" "$f"; then
+            echo "::error::Patch nicht anwendbar – upstream hat process-guards.ts geändert. Prüfen, ob der Bug inzwischen behoben ist."
+            exit 1
+          fi
+
       - name: Bei GHCR anmelden
         uses: docker/login-action@v3
         with:
