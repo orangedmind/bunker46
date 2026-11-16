@@ -21,9 +21,7 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
 
 concurrency:
   group: build-images
@@ -33,8 +31,26 @@ env:
   UPSTREAM: dsbaars/bunker46
 
 jobs:
+  # GitHub deaktiviert geplante Workflows in öffentlichen Repos nach 60 Tagen ohne
+  # Repo-Aktivität. Hier passiert selten etwas, upstream aber schon – also den
+  # Workflow bei jedem Lauf per API (erneut) aktivieren; das setzt den Zähler zurück.
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Workflow aktiv halten
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PUT \
+            "repos/${{ github.repository }}/actions/workflows/build-images.yml/enable"
+
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Upstream auschecken
         uses: actions/checkout@v4
